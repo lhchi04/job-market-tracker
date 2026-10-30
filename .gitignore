@@ -1,0 +1,8 @@
+node_modules/
+dist/
+cdk.out/
+*.tsbuildinfo
+.DS_Store
+.env*
+# Real postings are third-party text and stay in the private bucket.
+data/
