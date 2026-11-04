@@ -66,5 +66,9 @@ export const TECHNOLOGIES: Technology[] = [
   { name: "PyTorch", pattern: String.raw`\bpytorch\b`, evidence: true },
   { name: "TensorFlow", pattern: String.raw`\btensorflow\b`, evidence: false },
   { name: "LLMs/GenAI", pattern: String.raw`\bllms?\b|generative ai|\bgenai\b|large language model`, evidence: true },
-  { name: "Code review", pattern: String.raw`code reviews?`, evidence: false },
+  { name: "Code review", pattern: String.raw`code reviews?`, evidence: true },
+  { name: "MCP", pattern: String.raw`\bmcp\b|model context protocol`, evidence: false },
+  { name: "Tool calling", pattern: String.raw`function calling|tool[- ]calling|tool[- ]use`, evidence: false },
+  { name: "RAG", pattern: String.raw`\brag\b|retrieval.augmented`, evidence: false },
+  { name: "Embeddings/vector DB", pattern: String.raw`\bembeddings?\b|vector (database|store|db)s?`, evidence: false },
 ];
