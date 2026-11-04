@@ -12,17 +12,19 @@ Do these in order. Nothing costs money until step 4.
    this you only use it for billing.
 3. Create a **budget** of $1 per month with an email alert (Billing and Cost Management > Budgets).
    Do this before creating any resources.
-4. Open **IAM Identity Center** in `us-east-1`, enable it, create a user for yourself, and give it
-   the `AdministratorAccess` permission set on this account. This replaces long-lived access keys:
-   you sign in through a browser and get credentials that expire.
+4. Open **IAM > Users > Create user**, allow console access, and attach the `AdministratorAccess`
+   policy directly. Then turn on MFA for that user and sign in as them from now on. Skip IAM Identity
+   Center: its account access needs AWS Organizations, and joining that moves a Free plan account to
+   the Paid plan. Do not create access keys: `aws login` gives you credentials that expire.
 
 ## 2. Connect the CLI
 
 ```sh
-aws configure sso          # profile name: tracker, region: us-east-1
-aws sso login --profile tracker
+aws login --profile tracker     # region: us-east-2, then sign in as the IAM user in the browser
 aws sts get-caller-identity --profile tracker   # prints your account, proving it works
 ```
+
+Sessions last up to 12 hours. Run `aws login --profile tracker` again when they expire.
 
 ## 3. Bootstrap CDK (once per account and region)
 
@@ -43,6 +45,10 @@ npx -w infra cdk deploy --profile tracker
 ```
 
 The output prints `SiteUrl` and `DataBucketName`.
+
+On a new account the deploy can fail with "Your account must be verified before you can add new
+CloudFront resources". Open a free **Account and billing** case in AWS Support, paste the error
+with its request ID, and deploy again once they confirm. The failed stack rolls back on its own.
 
 ## 5. Load the postings
 
