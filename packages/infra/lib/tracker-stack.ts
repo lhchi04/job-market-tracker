@@ -1,15 +1,12 @@
 import { CfnOutput, Duration, RemovalPolicy, Stack, type StackProps } from "aws-cdk-lib";
-import { CfnStage, HttpApi, HttpMethod } from "aws-cdk-lib/aws-apigatewayv2";
+import { CfnStage, CorsHttpMethod, HttpApi, HttpMethod } from "aws-cdk-lib/aws-apigatewayv2";
 import { HttpLambdaIntegration } from "aws-cdk-lib/aws-apigatewayv2-integrations";
-import { AllowedMethods, CachePolicy, Distribution, OriginRequestPolicy, ViewerProtocolPolicy } from "aws-cdk-lib/aws-cloudfront";
-import { HttpOrigin, S3BucketOrigin } from "aws-cdk-lib/aws-cloudfront-origins";
 import { AttributeType, BillingMode, Table } from "aws-cdk-lib/aws-dynamodb";
 import { Runtime } from "aws-cdk-lib/aws-lambda";
 import { SqsEventSource } from "aws-cdk-lib/aws-lambda-event-sources";
 import { NodejsFunction, type NodejsFunctionProps } from "aws-cdk-lib/aws-lambda-nodejs";
 import { LogGroup, RetentionDays } from "aws-cdk-lib/aws-logs";
 import { BlockPublicAccess, Bucket, EventType } from "aws-cdk-lib/aws-s3";
-import { BucketDeployment, Source } from "aws-cdk-lib/aws-s3-deployment";
 import { SqsDestination } from "aws-cdk-lib/aws-s3-notifications";
 import { Queue } from "aws-cdk-lib/aws-sqs";
 import type { Construct } from "constructs";
@@ -18,11 +15,12 @@ import { fileURLToPath } from "node:url";
 const entry = (name: string) => fileURLToPath(new URL(`../../functions/src/${name}.ts`, import.meta.url));
 
 export interface TrackerStackProps extends StackProps {
-  siteDir: string;
+  /** Where the dashboard is hosted, e.g. https://lhchi04.github.io. Only this origin may call the API. */
+  siteOrigin: string;
 }
 
 export class TrackerStack extends Stack {
-  constructor(scope: Construct, id: string, { siteDir, ...props }: TrackerStackProps) {
+  constructor(scope: Construct, id: string, { siteOrigin, ...props }: TrackerStackProps) {
     super(scope, id, props);
 
     // Everything here is safe to destroy: the postings live on your machine and rebuild the rest.
@@ -73,7 +71,12 @@ export class TrackerStack extends Stack {
       new SqsEventSource(uploads, { batchSize: 1000, maxBatchingWindow: Duration.seconds(60), maxConcurrency: 2 }),
     );
 
-    const httpApi = new HttpApi(this, "HttpApi", { createDefaultStage: true });
+    // The dashboard is served from GitHub Pages, because this account can't use CloudFront yet.
+    // The page and the API are on different origins, so the API has to allow the page's origin.
+    const httpApi = new HttpApi(this, "HttpApi", {
+      createDefaultStage: true,
+      corsPreflight: { allowOrigins: [siteOrigin], allowMethods: [CorsHttpMethod.GET], maxAge: Duration.days(1) },
+    });
     httpApi.addRoutes({
       path: "/api/report",
       methods: [HttpMethod.GET],
@@ -85,32 +88,7 @@ export class TrackerStack extends Stack {
       throttlingRateLimit: 10,
     };
 
-    const siteBucket = new Bucket(this, "Site", privateBucket);
-    const distribution = new Distribution(this, "Cdn", {
-      defaultRootObject: "index.html",
-      defaultBehavior: {
-        origin: S3BucketOrigin.withOriginAccessControl(siteBucket),
-        viewerProtocolPolicy: ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
-      },
-      additionalBehaviors: {
-        // Same origin as the page, so the frontend needs no API URL and no CORS.
-        "/api/*": {
-          origin: new HttpOrigin(`${httpApi.apiId}.execute-api.${this.region}.${this.urlSuffix}`),
-          allowedMethods: AllowedMethods.ALLOW_GET_HEAD,
-          cachePolicy: CachePolicy.CACHING_DISABLED,
-          originRequestPolicy: OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
-          viewerProtocolPolicy: ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
-        },
-      },
-    });
-
-    new BucketDeployment(this, "DeploySite", {
-      sources: [Source.asset(siteDir)],
-      destinationBucket: siteBucket,
-      distribution,
-    });
-
-    new CfnOutput(this, "SiteUrl", { value: `https://${distribution.distributionDomainName}` });
+    new CfnOutput(this, "ApiUrl", { value: httpApi.apiEndpoint });
     new CfnOutput(this, "DataBucketName", { value: dataBucket.bucketName });
   }
 }

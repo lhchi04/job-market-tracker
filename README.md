@@ -2,7 +2,7 @@
 
 Shows which technologies appear most in saved job postings, and which ones I don't have evidence for yet.
 
-Built with React, TypeScript, AWS Lambda, API Gateway, DynamoDB, S3, SQS, CloudFront and AWS CDK.
+Built with React, TypeScript, AWS Lambda, API Gateway, DynamoDB, S3, SQS and AWS CDK, with the dashboard on GitHub Pages.
 
 ## Layout
 

@@ -39,16 +39,25 @@ Bootstrapping creates a small stack holding the S3 bucket and roles CDK deploys 
 ## 4. Deploy
 
 ```sh
-npm run build
 npx -w infra cdk diff --profile tracker      # read what will change
 npx -w infra cdk deploy --profile tracker
 ```
 
-The output prints `SiteUrl` and `DataBucketName`.
+The output prints `ApiUrl` and `DataBucketName`.
 
-On a new account the deploy can fail with "Your account must be verified before you can add new
-CloudFront resources". Open a free **Account and billing** case in AWS Support, paste the error
-with its request ID, and deploy again once they confirm. The failed stack rolls back on its own.
+The dashboard is not on AWS. AWS hasn't approved CloudFront for this account yet, so GitHub Pages
+hosts the page and calls the API directly. One-time setup:
+
+1. In the repo's **Settings → Pages**, set **Source** to **GitHub Actions**.
+2. In **Settings → Secrets and variables → Actions → Variables**, add `API_URL` set to `ApiUrl`.
+3. Run the **Deploy dashboard** workflow, or merge to `main`. The site is at
+   `https://lhchi04.github.io/job-market-tracker/`.
+
+If the site lives elsewhere, deploy with `SITE_ORIGIN=https://<host>` so the API's CORS allows it.
+
+If an earlier deploy failed on CloudFront, the stack may be stuck in `ROLLBACK_COMPLETE`. Delete it
+with `aws cloudformation delete-stack --stack-name JobMarketTracker --profile tracker`, then deploy
+again.
 
 ## 5. Load the postings
 
@@ -57,7 +66,7 @@ aws s3 sync "$HOME/Desktop/job app/data/jobs" "s3://<DataBucketName>/postings/" 
   --exclude "raw/*" --delete --profile tracker
 ```
 
-Wait about a minute: uploads queue up, then one Lambda run recomputes the counts. Then open `SiteUrl`.
+Wait about a minute: uploads queue up, then one Lambda run recomputes the counts. Then open the dashboard.
 If nothing appears, check the `Ingest` function's logs in CloudWatch.
 
 ## Teardown
@@ -72,8 +81,9 @@ its bucket first.
 
 ## How a request flows
 
-- The browser loads the page from **CloudFront**, which reads a private **S3** bucket.
-- `/api/*` goes through the same CloudFront domain to **API Gateway**, which runs the `Api` **Lambda**.
+- The browser loads the page from **GitHub Pages**.
+- The page calls `/api/report` on **API Gateway**, which runs the `Api` **Lambda**. CORS allows only
+  the dashboard's origin.
 - That Lambda queries **DynamoDB** and returns the report.
 - Uploading to the data bucket puts events on an **SQS** queue. The `Ingest` Lambda reads them in
   batches, recomputes everything from all postings and replaces the rows in DynamoDB.
