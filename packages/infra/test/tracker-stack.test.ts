@@ -1,12 +1,15 @@
 import { App } from "aws-cdk-lib";
-import { Template } from "aws-cdk-lib/assertions";
+import { Match, Template } from "aws-cdk-lib/assertions";
 import { beforeAll, describe, expect, it } from "vitest";
-import { TrackerStack } from "../lib/tracker-stack";
+import { TrackerStack, type TrackerStackProps } from "../lib/tracker-stack";
 
 let template: Template;
 
+const synth = (props: Partial<TrackerStackProps> = {}) =>
+  Template.fromStack(new TrackerStack(new App(), "Test", { siteOrigin: "https://example.github.io", ...props }));
+
 beforeAll(() => {
-  template = Template.fromStack(new TrackerStack(new App(), "Test", { siteOrigin: "https://example.github.io" }));
+  template = synth({ alarmEmail: "me@example.com" });
 }, 60_000);
 
 describe("TrackerStack", () => {
@@ -60,4 +63,19 @@ describe("TrackerStack", () => {
     expect(JSON.stringify(policies)).not.toContain("dynamodb:PutItem");
     expect(JSON.stringify(policies)).not.toContain("dynamodb:BatchWriteItem");
   });
+
+  it("alarms as soon as a run lands in the dead-letter queue", () => {
+    template.hasResourceProperties("AWS::CloudWatch::Alarm", {
+      MetricName: "ApproximateNumberOfMessagesVisible",
+      Namespace: "AWS/SQS",
+      Threshold: 1,
+      ComparisonOperator: "GreaterThanOrEqualToThreshold",
+      AlarmActions: [{ Ref: Match.stringLikeRegexp("^Alerts") }],
+    });
+  });
+
+  it("emails the alarm only when an address is given", () => {
+    template.hasResourceProperties("AWS::SNS::Subscription", { Protocol: "email", Endpoint: "me@example.com" });
+    synth().resourceCountIs("AWS::SNS::Subscription", 0);
+  }, 60_000);
 });
