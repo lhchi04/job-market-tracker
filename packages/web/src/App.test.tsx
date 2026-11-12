@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import type { Report } from "core";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App";
@@ -43,5 +43,25 @@ describe("App", () => {
     respondWith({ ok: false, status: 500 });
     render(<App />);
     expect((await screen.findByRole("alert")).textContent).toContain("500");
+  });
+
+  it("checks a pasted posting against my evidence without calling the API", async () => {
+    respondWith({ ok: true, json: async () => report });
+    render(<App />);
+    await screen.findByRole("rowheader", { name: "AWS" });
+    fireEvent.change(screen.getByLabelText("Job description"), {
+      target: { value: "You will build services on AWS in Python." },
+    });
+    const result = screen.getByRole("region", { name: "Posting check" });
+    expect(result.textContent).toContain("I have evidence for 1 of 2");
+    expect(within(result).getByText("AWS").closest("li")?.textContent).toContain("Gap");
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps the posting check usable when the API is down", async () => {
+    respondWith({ ok: false, status: 500 });
+    render(<App />);
+    await screen.findByRole("alert");
+    expect(screen.getByLabelText("Job description")).toBeTruthy();
   });
 });
