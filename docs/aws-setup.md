@@ -39,11 +39,13 @@ Bootstrapping creates a small stack holding the S3 bucket and roles CDK deploys 
 ## 4. Deploy
 
 ```sh
-npx -w infra cdk diff --profile tracker      # read what will change
-npx -w infra cdk deploy --profile tracker
+ALARM_EMAIL=you@example.com npx -w infra cdk diff --profile tracker   # read what will change
+ALARM_EMAIL=you@example.com npx -w infra cdk deploy --profile tracker
 ```
 
-The output prints `ApiUrl` and `DataBucketName`.
+The output prints `ApiUrl` and `DataBucketName`. AWS then emails `ALARM_EMAIL` asking you to
+confirm the subscription. Click the link, or the dead-letter alarm can't reach you. Always deploy
+with the same `ALARM_EMAIL`: leaving it out removes the subscription.
 
 The dashboard is not on AWS. AWS hasn't approved CloudFront for this account yet, so GitHub Pages
 hosts the page and calls the API directly. One-time setup:
@@ -87,4 +89,5 @@ its bucket first.
 - That Lambda queries **DynamoDB** and returns the report.
 - Uploading to the data bucket puts events on an **SQS** queue. The `Ingest` Lambda reads them in
   batches, recomputes everything from all postings and replaces the rows in DynamoDB.
-- Runs that fail three times land in a dead-letter queue instead of being lost.
+- Runs that fail three times land in a dead-letter queue instead of being lost, and a CloudWatch
+  alarm emails you through SNS.

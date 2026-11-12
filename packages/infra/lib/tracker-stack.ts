@@ -1,6 +1,8 @@
 import { CfnOutput, Duration, RemovalPolicy, Stack, type StackProps } from "aws-cdk-lib";
 import { CfnStage, CorsHttpMethod, HttpApi, HttpMethod } from "aws-cdk-lib/aws-apigatewayv2";
 import { HttpLambdaIntegration } from "aws-cdk-lib/aws-apigatewayv2-integrations";
+import { Alarm, ComparisonOperator, TreatMissingData } from "aws-cdk-lib/aws-cloudwatch";
+import { SnsAction } from "aws-cdk-lib/aws-cloudwatch-actions";
 import { AttributeType, BillingMode, Table } from "aws-cdk-lib/aws-dynamodb";
 import { Runtime } from "aws-cdk-lib/aws-lambda";
 import { SqsEventSource } from "aws-cdk-lib/aws-lambda-event-sources";
@@ -8,6 +10,8 @@ import { NodejsFunction, type NodejsFunctionProps } from "aws-cdk-lib/aws-lambda
 import { LogGroup, RetentionDays } from "aws-cdk-lib/aws-logs";
 import { BlockPublicAccess, Bucket, EventType } from "aws-cdk-lib/aws-s3";
 import { SqsDestination } from "aws-cdk-lib/aws-s3-notifications";
+import { Topic } from "aws-cdk-lib/aws-sns";
+import { EmailSubscription } from "aws-cdk-lib/aws-sns-subscriptions";
 import { Queue } from "aws-cdk-lib/aws-sqs";
 import type { Construct } from "constructs";
 import { fileURLToPath } from "node:url";
@@ -17,10 +21,12 @@ const entry = (name: string) => fileURLToPath(new URL(`../../functions/src/${nam
 export interface TrackerStackProps extends StackProps {
   /** Where the dashboard is hosted, e.g. https://lhchi04.github.io. Only this origin may call the API. */
   siteOrigin: string;
+  /** Gets an email when an ingest run fails for good. Kept out of the repo: set ALARM_EMAIL when deploying. */
+  alarmEmail?: string;
 }
 
 export class TrackerStack extends Stack {
-  constructor(scope: Construct, id: string, { siteOrigin, ...props }: TrackerStackProps) {
+  constructor(scope: Construct, id: string, { siteOrigin, alarmEmail, ...props }: TrackerStackProps) {
     super(scope, id, props);
 
     // Everything here is safe to destroy: the postings live on your machine and rebuild the rest.
@@ -65,6 +71,17 @@ export class TrackerStack extends Stack {
       visibilityTimeout: Duration.minutes(12),
       deadLetterQueue: { queue: deadLetters, maxReceiveCount: 3 },
     });
+    // A message here means an ingest run failed three times, so the dashboard is showing stale counts.
+    const alerts = new Topic(this, "Alerts");
+    if (alarmEmail) alerts.addSubscription(new EmailSubscription(alarmEmail));
+    new Alarm(this, "DeadLettersAlarm", {
+      metric: deadLetters.metricApproximateNumberOfMessagesVisible({ period: Duration.minutes(5) }),
+      threshold: 1,
+      evaluationPeriods: 1,
+      comparisonOperator: ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+      treatMissingData: TreatMissingData.NOT_BREACHING,
+    }).addAlarmAction(new SnsAction(alerts));
+
     dataBucket.addEventNotification(EventType.OBJECT_CREATED, new SqsDestination(uploads), { prefix: "postings/" });
     dataBucket.addEventNotification(EventType.OBJECT_REMOVED, new SqsDestination(uploads), { prefix: "postings/" });
     ingest.addEventSource(
