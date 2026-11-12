@@ -55,9 +55,9 @@ hosts the page and calls the API directly. One-time setup:
 
 If the site lives elsewhere, deploy with `SITE_ORIGIN=https://<host>` so the API's CORS allows it.
 
-On a new account the deploy can fail with "Your account must be verified before you can add new
-CloudFront resources". Open a free **Account and billing** case in AWS Support, paste the error
-with its request ID, and deploy again once they confirm. The failed stack rolls back on its own.
+If an earlier deploy failed on CloudFront, the stack may be stuck in `ROLLBACK_COMPLETE`. Delete it
+with `aws cloudformation delete-stack --stack-name JobMarketTracker --profile tracker`, then deploy
+again.
 
 ## 5. Load the postings
 
