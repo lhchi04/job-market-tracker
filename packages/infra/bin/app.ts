@@ -1,7 +1,6 @@
 import { App } from "aws-cdk-lib";
-import { fileURLToPath } from "node:url";
 import { TrackerStack } from "../lib/tracker-stack";
 
-const siteDir = fileURLToPath(new URL("../../web/dist", import.meta.url));
+const siteOrigin = process.env.SITE_ORIGIN ?? "https://lhchi04.github.io";
 
-new TrackerStack(new App(), "JobMarketTracker", { siteDir });
+new TrackerStack(new App(), "JobMarketTracker", { siteOrigin });

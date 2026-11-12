@@ -12,8 +12,11 @@ const VIEWS: { id: View; label: string }[] = [
 const inView = (view: View) => (technology: TechnologyCount) =>
   view === "all" || technology.evidence === (view === "evidence");
 
+// Set at build time to the deployed API Gateway URL. Empty means same origin, as in tests.
+const API_URL = import.meta.env.VITE_API_URL ?? "";
+
 const fetchReport = async (signal: AbortSignal): Promise<Report> => {
-  const response = await fetch("/api/report", { signal });
+  const response = await fetch(`${API_URL}/api/report`, { signal });
   if (!response.ok) throw new Error(`API returned ${response.status}`);
   return response.json();
 };

@@ -1,16 +1,12 @@
 import { App } from "aws-cdk-lib";
 import { Template } from "aws-cdk-lib/assertions";
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import { beforeAll, describe, expect, it } from "vitest";
 import { TrackerStack } from "../lib/tracker-stack";
 
 let template: Template;
 
 beforeAll(() => {
-  const siteDir = mkdtempSync(join(tmpdir(), "site-"));
-  template = Template.fromStack(new TrackerStack(new App(), "Test", { siteDir }));
+  template = Template.fromStack(new TrackerStack(new App(), "Test", { siteOrigin: "https://example.github.io" }));
 }, 60_000);
 
 describe("TrackerStack", () => {
@@ -23,7 +19,7 @@ describe("TrackerStack", () => {
 
   it("keeps every bucket private", () => {
     const buckets = Object.values(template.findResources("AWS::S3::Bucket"));
-    expect(buckets.length).toBeGreaterThanOrEqual(2);
+    expect(buckets.length).toBeGreaterThanOrEqual(1);
     for (const bucket of buckets) {
       expect(bucket.Properties.PublicAccessBlockConfiguration).toMatchObject({
         BlockPublicAcls: true,
@@ -32,6 +28,16 @@ describe("TrackerStack", () => {
         RestrictPublicBuckets: true,
       });
     }
+  });
+
+  it("uses no CloudFront, which this account can't access", () => {
+    template.resourceCountIs("AWS::CloudFront::Distribution", 0);
+  });
+
+  it("lets only the dashboard's origin call the API", () => {
+    template.hasResourceProperties("AWS::ApiGatewayV2::Api", {
+      CorsConfiguration: { AllowOrigins: ["https://example.github.io"], AllowMethods: ["GET"] },
+    });
   });
 
   it("throttles the public API", () => {
