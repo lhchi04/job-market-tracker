@@ -13,11 +13,11 @@ describe("checkPosting", () => {
   });
 
   it("marks a technology that only appears in an either-or language list as not firm", () => {
-    expect(find("Experience in Java, Python, or Go.", "Go")).toMatchObject({ firm: false });
+    expect(find("Experience in Java, Python, or Rust.", "Rust")).toMatchObject({ firm: false });
   });
 
   it("puts firm requirements before options", () => {
-    const names = checkPosting("Experience in Java, Python, or Go. Deep AWS knowledge.").technologies;
+    const names = checkPosting("Experience in Java, Python, or Rust. Deep AWS knowledge.").technologies;
     expect(names[0]).toMatchObject({ name: "AWS", firm: true });
     expect(names.at(-1)?.firm).toBe(false);
   });

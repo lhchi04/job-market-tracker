@@ -52,6 +52,23 @@ tbody th { font-weight: 500; white-space: nowrap; }
 .bar-column { width: 40%; }
 .bar { height: 12px; border-radius: 0 4px 4px 0; background: var(--series); }
 
+.check { margin-top: 40px; }
+h2 { margin: 0 0 8px; font-size: 20px; }
+label { display: block; margin-bottom: 4px; font-weight: 500; }
+textarea {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  background: none;
+  color: inherit;
+  font: 14px/1.5 system-ui, sans-serif;
+  resize: vertical;
+}
+.matches { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; list-style: none; font-size: 14px; }
+.matches li { display: flex; gap: 6px; padding: 4px 10px; border: 1px solid var(--rule); border-radius: 999px; }
+.matches li.gap { border-color: var(--series); }
+
 @media (max-width: 560px) {
   .bar-column, .share { display: none; }
   th, td { padding: 6px 4px; }

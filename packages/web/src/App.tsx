@@ -1,5 +1,5 @@
-import type { Report, TechnologyCount } from "core";
-import { useEffect, useState } from "react";
+import { checkPosting, type Report, type TechnologyCount } from "core";
+import { useDeferredValue, useEffect, useMemo, useState } from "react";
 
 type View = "gaps" | "evidence" | "all";
 
@@ -53,29 +53,51 @@ const Table = ({ technologies, analyzed }: { technologies: TechnologyCount[]; an
   );
 };
 
-export const App = () => {
-  const [report, setReport] = useState<Report>();
-  const [error, setError] = useState<string>();
+// Runs entirely in the browser: a pasted posting never leaves the page.
+const PostingCheck = () => {
+  const [text, setText] = useState("");
+  const deferred = useDeferredValue(text);
+  const { technologies, restricted } = useMemo(() => checkPosting(deferred), [deferred]);
+  const firm = technologies.filter((technology) => technology.firm);
+  const covered = firm.filter((technology) => technology.evidence).length;
+
+  return (
+    <section className="check" aria-labelledby="check-heading">
+      <h2 id="check-heading">Check a posting</h2>
+      <p className="lede">Paste a job description to see which technologies it asks for, and which I have evidence for.</p>
+      <label htmlFor="posting">Job description</label>
+      <textarea id="posting" rows={6} value={text} onChange={(event) => setText(event.target.value)} />
+      {technologies.length > 0 && (
+        <div role="region" aria-label="Posting check">
+          <p>
+            {firm.length > 0
+              ? `I have evidence for ${covered} of ${firm.length} firm requirements.`
+              : "It only names technologies as options in a list."}
+            {restricted && " It also mentions a citizenship or clearance requirement."}
+          </p>
+          <ul className="matches">
+            {technologies.map(({ name, firm, evidence }) => (
+              <li key={name} className={evidence ? "evidence" : "gap"}>
+                <span>{name}</span>
+                <span className="status">
+                  {evidence ? "Evidence" : "Gap"}
+                  {!firm && ", one option"}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </section>
+  );
+};
+
+const Dashboard = ({ report }: { report: Report }) => {
   const [view, setView] = useState<View>("gaps");
-
-  useEffect(() => {
-    const controller = new AbortController();
-    fetchReport(controller.signal)
-      .then(setReport)
-      .catch((reason: Error) => {
-        if (reason.name !== "AbortError") setError(reason.message);
-      });
-    return () => controller.abort();
-  }, []);
-
-  if (error) return <main><p role="alert">Could not load the report: {error}</p></main>;
-  if (!report) return <main><p>Loading…</p></main>;
-
   const { summary, technologies } = report;
   const shown = technologies.filter(inView(view));
   return (
-    <main>
-      <h1>Job Market Tracker</h1>
+    <>
       <p className="lede">
         {summary.analyzed} postings analyzed, {summary.filtered} removed for citizenship or clearance. A firm mention
         means the technology wasn't just one option in an either-or language list.
@@ -88,6 +110,35 @@ export const App = () => {
         ))}
       </div>
       {shown.length > 0 ? <Table technologies={shown} analyzed={summary.analyzed} /> : <p>No technologies here yet.</p>}
+    </>
+  );
+};
+
+export const App = () => {
+  const [report, setReport] = useState<Report>();
+  const [error, setError] = useState<string>();
+
+  useEffect(() => {
+    const controller = new AbortController();
+    fetchReport(controller.signal)
+      .then(setReport)
+      .catch((reason: Error) => {
+        if (reason.name !== "AbortError") setError(reason.message);
+      });
+    return () => controller.abort();
+  }, []);
+
+  return (
+    <main>
+      <h1>Job Market Tracker</h1>
+      {error ? (
+        <p role="alert">Could not load the report: {error}</p>
+      ) : report ? (
+        <Dashboard report={report} />
+      ) : (
+        <p>Loading…</p>
+      )}
+      <PostingCheck />
     </main>
   );
 };
