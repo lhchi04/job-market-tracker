@@ -92,3 +92,19 @@ export const analyze = (input: Posting[]): Report => {
     filtered: filtered.map(({ title, company }) => ({ title, company })),
   };
 };
+
+export interface TechnologyMatch {
+  name: string;
+  /** False when the posting only names it as one option in an either-or language list. */
+  firm: boolean;
+  evidence: boolean;
+}
+
+/** What one posting asks for, firm requirements first. Same matching as `analyze`. */
+export const checkPosting = (description: string): { technologies: TechnologyMatch[]; restricted: boolean } => ({
+  technologies: TECHNOLOGIES.map((technology) => countTechnology(technology, [description]))
+    .filter((technology) => technology.mentions > 0)
+    .sort(byRank)
+    .map(({ name, firm, evidence }) => ({ name, firm: firm > 0, evidence })),
+  restricted: CITIZENSHIP.test(description),
+});
