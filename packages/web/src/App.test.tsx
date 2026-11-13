@@ -50,11 +50,11 @@ describe("App", () => {
     render(<App />);
     await screen.findByRole("rowheader", { name: "AWS" });
     fireEvent.change(screen.getByLabelText("Job description"), {
-      target: { value: "You will build services on AWS in Python." },
+      target: { value: "You will build services on Azure in Python." },
     });
     const result = screen.getByRole("region", { name: "Posting check" });
     expect(result.textContent).toContain("I have evidence for 1 of 2");
-    expect(within(result).getByText("AWS").closest("li")?.textContent).toContain("Gap");
+    expect(within(result).getByText("Azure").closest("li")?.textContent).toContain("Gap");
     expect(fetch).toHaveBeenCalledTimes(1);
   });
 
