@@ -46,9 +46,9 @@ describe("technology matching", () => {
   });
 
   it("marks whether there is evidence for a technology", () => {
-    const { technologies } = analyze([posting("Python and AWS")]);
+    const { technologies } = analyze([posting("Python and Azure")]);
     expect(technologies.find((tech) => tech.name === "Python")?.evidence).toBe(true);
-    expect(technologies.find((tech) => tech.name === "AWS")?.evidence).toBe(false);
+    expect(technologies.find((tech) => tech.name === "Azure")?.evidence).toBe(false);
   });
 });
 
